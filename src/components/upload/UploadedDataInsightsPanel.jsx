@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   AlertTriangle,
-  BarChart3,
   CheckCircle2,
   Loader2,
   LockKeyhole,
@@ -9,6 +8,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import AiSuggestedChartPlotter from "./AiSuggestedChartPlotter";
 import Card from "../Card";
 import SectionHeader from "../SectionHeader";
 import { createAiDatasetSummary } from "../../data/aiDatasetSummary";
@@ -135,7 +135,10 @@ export default function UploadedDataInsightsPanel({
       )}
 
       {activeInsightState.result && (
-        <InsightsResult result={activeInsightState.result} />
+        <InsightsResult
+          cleaningResult={cleaningResult}
+          result={activeInsightState.result}
+        />
       )}
     </Card>
   );
@@ -176,7 +179,7 @@ function PrivacySummary({ datasetSummary }) {
   );
 }
 
-function InsightsResult({ result }) {
+function InsightsResult({ cleaningResult, result }) {
   return (
     <div className="mt-5 space-y-5">
       <div className="grid gap-3 lg:grid-cols-3">
@@ -211,28 +214,10 @@ function InsightsResult({ result }) {
         />
       </div>
 
-      <div>
-        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-          <BarChart3 className="h-4 w-4 text-blue-600" />
-          Suggested charts
-        </h3>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          {result.suggestedCharts.map((chart, index) => (
-            <div
-              className="rounded-lg border border-slate-200 bg-slate-50 p-3"
-              key={`${chart.title}-${index}`}
-            >
-              <p className="text-sm font-bold text-slate-900">{chart.title}</p>
-              <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
-                {chart.chartType}
-              </p>
-              <p className="mt-2 text-sm leading-5 text-slate-600">
-                {chart.reason}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+      <AiSuggestedChartPlotter
+        cleaningResult={cleaningResult}
+        suggestedCharts={result.suggestedCharts}
+      />
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
         {result.modelTrainingPointer}
