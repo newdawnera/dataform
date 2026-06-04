@@ -22,6 +22,10 @@ describe("buildPlotFromSuggestion", () => {
     });
 
     expect(plot).toMatchObject({
+      interpretation: {
+        summary:
+          "group_size shows a weak negative pattern across submission_timestamp.",
+      },
       title: "Group Size vs. Submission Timestamp",
       type: "scatter",
       xLabel: "submission_timestamp",
@@ -34,5 +38,32 @@ describe("buildPlotFromSuggestion", () => {
       { x: Date.parse("2026-01-02T00:00:00Z"), y: 5 },
       { x: Date.parse("2026-01-03T00:00:00Z"), y: 2 },
     ]);
+  });
+
+  it("explains when a line suggestion falls back to row order instead of time", () => {
+    const plot = buildPlotFromSuggestion({
+      cleaningResult: {
+        headers: ["group_size", "submission_timestamp"],
+        rows: [
+          [3, "not ready"],
+          [5, "still not ready"],
+          [2, "missing date"],
+        ],
+      },
+      suggestion: {
+        chartType: "line",
+        reason: "To examine the trend of submissions over time.",
+        title: "Submission Timestamp Trend",
+      },
+    });
+
+    expect(plot).toMatchObject({
+      subtitle: "Cleaned group_size values by row order.",
+      type: "line",
+    });
+    expect(plot.interpretation.summary).toContain("not a true time trend");
+    expect(plot.interpretation.details[2]).toContain(
+      "avoid treating it as a submission-time trend",
+    );
   });
 });

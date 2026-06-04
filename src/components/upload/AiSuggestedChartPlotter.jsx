@@ -19,6 +19,7 @@ import { BarChart3, Eye } from "lucide-react";
 
 import {
   buildPlotFromSuggestion,
+  buildSuggestedChartRead,
   formatScatterValue,
 } from "./aiSuggestedChartPlotterUtils";
 
@@ -59,8 +60,10 @@ export default function AiSuggestedChartPlotter({
       </h3>
       <div className="mt-3 grid gap-3 md:grid-cols-3">
         {suggestedCharts.map((chart, index) => {
-          const canPlot = Boolean(plots[index]);
+          const plot = plots[index];
+          const canPlot = Boolean(plot);
           const isActive = activeIndex === index;
+          const suggestedRead = buildSuggestedChartRead({ plot, suggestion: chart });
 
           return (
             <div
@@ -93,9 +96,17 @@ export default function AiSuggestedChartPlotter({
               <p className="mt-2 text-sm leading-5 text-slate-600">
                 {chart.reason}
               </p>
+              <div className="mt-3 rounded-md border border-slate-200 bg-white/70 p-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Suggested read
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  {suggestedRead}
+                </p>
+              </div>
               {!canPlot && (
                 <p className="mt-2 text-xs font-semibold text-amber-700">
-                  No matching chart-ready cleaned columns found.
+                  Cannot plot safely from the chart-ready cleaned columns.
                 </p>
               )}
             </div>
@@ -128,6 +139,30 @@ function SuggestedChart({ plot }) {
       {plot.type === "line" && <SuggestedLineChart plot={plot} />}
       {plot.type === "scatter" && <SuggestedScatterChart plot={plot} />}
       {plot.type === "table" && <SuggestedTable plot={plot} />}
+      {plot.interpretation && <SuggestedInterpretation interpretation={plot.interpretation} />}
+    </div>
+  );
+}
+
+function SuggestedInterpretation({ interpretation }) {
+  return (
+    <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/70 p-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
+        Interpretation
+      </p>
+      <p className="mt-1 text-sm font-semibold leading-6 text-slate-800">
+        {interpretation.summary}
+      </p>
+      {interpretation.details?.length > 0 && (
+        <ul className="mt-2 space-y-1 text-sm leading-6 text-slate-600">
+          {interpretation.details.map((detail) => (
+            <li className="flex gap-2" key={detail}>
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+              <span>{detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
