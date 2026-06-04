@@ -101,7 +101,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 font-sans text-slate-900 pb-12">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-12">
       <DashboardHeader
         isRefreshing={isRefreshing}
         onRefresh={handleRefresh}
@@ -128,7 +128,7 @@ export default function Dashboard() {
               subtext="+12.5% vs Last Year"
               trend="positive"
               icon={Wallet}
-              gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
+              gradient="bg-emerald-600"
             />
             <KPICard
               title="Annual Revenue"
@@ -136,7 +136,7 @@ export default function Dashboard() {
               subtext="+8.2% vs Target"
               trend="positive"
               icon={TrendingUp}
-              gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
+              gradient="bg-blue-600"
             />
             <KPICard
               title="Avg. Risk Score"
@@ -144,7 +144,7 @@ export default function Dashboard() {
               subtext="Model v4.2 (Scale 0-1)"
               trend="neutral"
               icon={Activity}
-              gradient="bg-gradient-to-br from-purple-500 to-pink-600"
+              gradient="bg-violet-600"
             />
             <KPICard
               title="Default Rate"
@@ -152,7 +152,7 @@ export default function Dashboard() {
               subtext="Above threshold (>4.5%)"
               trend="negative"
               icon={ShieldAlert}
-              gradient="bg-gradient-to-br from-rose-500 to-red-600"
+              gradient="bg-rose-600"
             />
           </div>
 

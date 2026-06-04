@@ -6,35 +6,39 @@ export default function DashboardHeader({
   showRefresh = true,
 }) {
   return (
-    <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 shadow-sm backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-br from-blue-600 to-purple-600 p-2 rounded-lg shadow-lg">
-            <LayoutDashboard className="text-white w-5 h-5" />
+          <div className="rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 p-2 shadow">
+            <LayoutDashboard aria-hidden="true" className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight">
+            <h1 className="text-xl font-bold leading-tight text-slate-900">
               Data Insight Workspace
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Retail risk demo + local data import
+            <p className="text-xs font-medium text-slate-500">
+              Retail risk demo · local data import
             </p>
           </div>
         </div>
+
         <div className="flex items-center gap-3">
           {showRefresh && (
             <button
-              onClick={onRefresh}
+              aria-label={isRefreshing ? "Refreshing data" : "Refresh data"}
+              className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={isRefreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-medium hover:from-blue-600 hover:to-purple-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+              onClick={onRefresh}
+              type="button"
             >
               <RefreshCw
-                className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+                aria-hidden="true"
+                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
               />
               <span className="hidden sm:inline">Refresh Data</span>
             </button>
           )}
-          <span className="hidden md:block px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
+          <span className="hidden rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 md:block">
             Secure Insights
           </span>
         </div>

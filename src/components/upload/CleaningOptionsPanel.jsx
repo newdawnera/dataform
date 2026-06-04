@@ -69,51 +69,63 @@ export default function CleaningOptionsPanel({
         <div className="flex flex-wrap gap-2">
           {hasAppliedCleaning && (
             <button
+              aria-label="Reset cleaning to original dataset"
               className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
               onClick={onReset}
               type="button"
             >
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw aria-hidden="true" className="h-4 w-4" />
               Reset
             </button>
           )}
           <button
+            aria-label="Apply selected cleaning options to the dataset"
             className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={quality.totalRows === 0}
             onClick={onApply}
             type="button"
           >
-            <Wand2 className="h-4 w-4" />
+            <Wand2 aria-hidden="true" className="h-4 w-4" />
             Apply cleaning
           </button>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {CLEANING_OPTIONS.map((option) => (
-          <label
-            className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 transition-colors hover:bg-slate-50"
-            key={option.key}
-          >
-            <input
-              checked={Boolean(options[option.key])}
-              className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
-              onChange={(event) =>
-                onOptionChange(option.key, event.target.checked)
-              }
-              type="checkbox"
-            />
-            <span>
-              <span className="block text-sm font-bold text-slate-900">
-                {option.label}
-              </span>
-              <span className="block text-sm leading-5 text-slate-500">
-                {option.detail}
-              </span>
-            </span>
-          </label>
-        ))}
-      </div>
+      <fieldset>
+        <legend className="sr-only">Cleaning options</legend>
+        <div className="grid gap-3 md:grid-cols-2">
+          {CLEANING_OPTIONS.map((option) => {
+            const detailId = `cleaning-detail-${option.key}`;
+            return (
+              <label
+                className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 transition-colors hover:bg-slate-50"
+                key={option.key}
+              >
+                <input
+                  aria-describedby={detailId}
+                  checked={Boolean(options[option.key])}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-2 focus:ring-slate-900 focus:ring-offset-1"
+                  onChange={(event) =>
+                    onOptionChange(option.key, event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-slate-900">
+                    {option.label}
+                  </span>
+                  <span
+                    className="block text-sm leading-5 text-slate-500"
+                    id={detailId}
+                  >
+                    {option.detail}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
     </Card>
   );
 }
