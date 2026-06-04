@@ -1,28 +1,27 @@
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 
-// ─── Context ────────────────────────────────────────────────────────────────
-
-const ToastContext = createContext(null);
-
-// ─── Provider ───────────────────────────────────────────────────────────────
+import { ToastContext } from "./toastContextValue";
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const idRef = useRef(0);
 
-  const addToast = useCallback((message, type = "info", duration = 4000) => {
-    const id = ++idRef.current;
-    setToasts((prev) => [...prev, { id, message, type }]);
-    if (duration > 0) {
-      setTimeout(() => dismiss(id), duration);
-    }
-    return id;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const dismiss = useCallback((id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
+
+  const addToast = useCallback(
+    (message, type = "info", duration = 4000) => {
+      const id = ++idRef.current;
+      setToasts((prev) => [...prev, { id, message, type }]);
+      if (duration > 0) {
+        setTimeout(() => dismiss(id), duration);
+      }
+      return id;
+    },
+    [dismiss],
+  );
 
   return (
     <ToastContext.Provider value={{ addToast, dismiss }}>
@@ -31,16 +30,6 @@ export function ToastProvider({ children }) {
     </ToastContext.Provider>
   );
 }
-
-// ─── Hook ────────────────────────────────────────────────────────────────────
-
-export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error("useToast must be used inside <ToastProvider>");
-  return ctx;
-}
-
-// ─── Toaster ─────────────────────────────────────────────────────────────────
 
 const TONE = {
   success: {
@@ -73,7 +62,6 @@ function Toast({ id, message, type, onDismiss }) {
       aria-atomic="true"
       className={`relative flex w-full max-w-sm items-start gap-3 overflow-hidden rounded-xl border bg-white px-4 py-3 shadow-lg ${ring}`}
     >
-      {/* accent bar */}
       <span className={`absolute left-0 top-0 h-full w-1 ${bar}`} aria-hidden="true" />
 
       <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconClass}`} aria-hidden="true" />
@@ -100,8 +88,8 @@ function Toaster({ toasts, onDismiss }) {
       aria-label="Notifications"
       className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2"
     >
-      {toasts.map((t) => (
-        <Toast key={t.id} {...t} onDismiss={onDismiss} />
+      {toasts.map((toast) => (
+        <Toast key={toast.id} {...toast} onDismiss={onDismiss} />
       ))}
     </div>
   );

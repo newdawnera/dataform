@@ -1,0 +1,430 @@
+import {
+  isMissingValue,
+  parseDateValue,
+  parseNumberValue,
+} from "../../data/cleaningRules";
+import { detectSensitiveField } from "../../data/sensitiveFieldDetection";
+
+const MAX_CATEGORY_ITEMS = 8;
+const MAX_SCATTER_POINTS = 120;
+const MAX_TABLE_ROWS = 10;
+
+export function buildPlotFromSuggestion({ cleaningResult, suggestion }) {
+  if (!cleaningResult?.headers || !cleaningResult?.rows?.length) return null;
+
+  const columns = summarizeColumns(cleaningResult);
+  const chartType = String(suggestion?.chartType || "bar").toLowerCase();
+  const matchedColumns = findSuggestedColumns(suggestion, columns);
+  const matchedColumn = matchedColumns[0];
+  const numericColumns = columns.filter((column) => column.isNumeric);
+  const dateColumns = columns.filter((column) => column.isDate);
+  const categoricalColumns = columns.filter((column) => column.isCategorical);
+
+  if (chartType === "line") {
+    return buildLinePlot({
+      dateColumn: matchedColumn?.isDate ? matchedColumn : dateColumns[0],
+      numericColumn: matchedColumn?.isNumeric ? matchedColumn : numericColumns[0],
+      rows: cleaningResult.rows,
+      suggestion,
+    });
+  }
+
+  if (chartType === "scatter") {
+    const { xColumn, yColumn } = selectScatterColumns({
+      dateColumns,
+      matchedColumns,
+      numericColumns,
+    });
+
+    return buildScatterPlot({ rows: cleaningResult.rows, suggestion, xColumn, yColumn });
+  }
+
+  if (chartType === "pie") {
+    const column =
+      matchedColumn ||
+      categoricalColumns[0] ||
+      numericColumns.find((item) => item.topValues.totalUniqueCount <= 20);
+
+    return buildDistributionPlot({ column, suggestion, type: "pie" });
+  }
+
+  if (chartType === "table") {
+    return buildTablePlot({
+      columns,
+      rows: cleaningResult.rows,
+      suggestion,
+    });
+  }
+
+  const column =
+    matchedColumn ||
+    categoricalColumns[0] ||
+    numericColumns.find((item) => item.topValues.totalUniqueCount <= 20) ||
+    numericColumns[0];
+
+  return buildDistributionPlot({ column, suggestion, type: "bar" });
+}
+
+export function formatScatterValue(value, valueType = "number") {
+  if (valueType === "date") return formatDateFromTimestamp(value);
+  return formatNumber(value);
+}
+
+function summarizeColumns(cleaningResult) {
+  return cleaningResult.headers
+    .map((name, columnIndex) => {
+      const observedValues = cleaningResult.rows
+        .map((row) => row[columnIndex])
+        .filter((value) => !isMissingValue(value));
+      const numericValues = observedValues
+        .map((value) => parseNumberValue(value))
+        .filter((value) => value?.isValid)
+        .map((value) => value.value);
+      const dateValues = observedValues
+        .map((value) => parseDateValue(value))
+        .filter((value) => value?.isValid)
+        .map((value) => value.isoValue);
+      const topValues = buildTopValues(observedValues);
+      const observedCount = observedValues.length;
+      const numericRatio =
+        observedCount === 0 ? 0 : numericValues.length / observedCount;
+      const dateRatio =
+        observedCount === 0 ? 0 : dateValues.length / observedCount;
+      const columnName = String(name || `Column ${columnIndex + 1}`);
+
+      return {
+        columnIndex,
+        isCategorical:
+          observedCount > 0 &&
+          numericRatio < 0.8 &&
+          dateRatio < 0.8 &&
+          topValues.totalUniqueCount > 1,
+        isDate: observedCount > 0 && dateRatio >= 0.8,
+        isNumeric: observedCount > 0 && numericRatio >= 0.8,
+        isSensitive: detectSensitiveField(columnName).isSensitive,
+        name: columnName,
+        normalizedName: normalizeText(columnName),
+        numericValues,
+        observedCount,
+        topValues,
+      };
+    })
+    .filter((column) => !column.isSensitive);
+}
+
+function findSuggestedColumns(suggestion, columns) {
+  const suggestionText = normalizeText(
+    `${suggestion?.title || ""} ${suggestion?.reason || ""}`,
+  );
+
+  return columns
+    .map((column) => ({
+      column,
+      score: scoreColumnMatch(suggestionText, column.normalizedName),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .map((item) => item.column);
+}
+
+function scoreColumnMatch(suggestionText, columnName) {
+  if (!suggestionText || !columnName) return 0;
+  if (suggestionText.includes(columnName)) return 100 + columnName.length;
+
+  const tokens = columnName.split(" ").filter((token) => token.length > 2);
+  return tokens.reduce(
+    (score, token) => score + (suggestionText.includes(token) ? 10 : 0),
+    0,
+  );
+}
+
+function buildDistributionPlot({ column, suggestion, type }) {
+  if (!column) return null;
+
+  const data = column.isNumeric
+    ? buildNumericBuckets(column.numericValues)
+    : column.topValues.items.map((item) => ({
+        name: item.name,
+        value: item.count,
+      }));
+
+  if (data.length === 0) return null;
+
+  return {
+    data,
+    subtitle: `Plotted locally from cleaned ${column.name} values.`,
+    title: suggestion?.title || `${column.name} Distribution`,
+    type,
+    valueLabel: "Rows",
+  };
+}
+
+function buildLinePlot({ dateColumn, numericColumn, rows, suggestion }) {
+  if (dateColumn) {
+    const buckets = new Map();
+
+    rows.forEach((row) => {
+      const dateValue = parseDateValue(row[dateColumn.columnIndex]);
+      if (!dateValue?.isValid) return;
+
+      const bucket = dateValue.isoValue;
+      const currentBucket = buckets.get(bucket) || { count: 0, total: 0 };
+      const numericValue = numericColumn
+        ? parseNumberValue(row[numericColumn.columnIndex])
+        : null;
+
+      currentBucket.count += 1;
+      if (numericValue?.isValid) currentBucket.total += numericValue.value;
+
+      buckets.set(bucket, currentBucket);
+    });
+
+    const data = [...buckets.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([name, bucket]) => ({
+        name,
+        value:
+          numericColumn && bucket.count > 0
+            ? roundNumber(bucket.total / bucket.count)
+            : bucket.count,
+      }));
+
+    if (data.length === 0) return null;
+
+    return {
+      data,
+      subtitle: numericColumn
+        ? `Average ${numericColumn.name} by ${dateColumn.name}.`
+        : `Row count by ${dateColumn.name}.`,
+      title: suggestion?.title || `${dateColumn.name} Trend`,
+      type: "line",
+      valueLabel: numericColumn ? `Average ${numericColumn.name}` : "Rows",
+    };
+  }
+
+  if (!numericColumn) return null;
+
+  return {
+    data: numericColumn.numericValues.map((value, index) => ({
+      name: String(index + 1),
+      value,
+    })),
+    subtitle: `Cleaned ${numericColumn.name} values by row order.`,
+    title: suggestion?.title || `${numericColumn.name} Sequence`,
+    type: "line",
+    valueLabel: numericColumn.name,
+  };
+}
+
+function selectScatterColumns({ dateColumns, matchedColumns, numericColumns }) {
+  const chartableMatchedColumns = matchedColumns.filter(
+    (column) => column.isNumeric || column.isDate,
+  );
+  const mentionedDateColumn = chartableMatchedColumns.find((column) => column.isDate);
+  const mentionedNumericColumns = chartableMatchedColumns.filter(
+    (column) => column.isNumeric,
+  );
+  const mentionedNumericColumn = mentionedNumericColumns[0];
+  const allChartableColumns = [...numericColumns, ...dateColumns];
+
+  if (mentionedDateColumn && mentionedNumericColumn) {
+    return {
+      xColumn: mentionedDateColumn,
+      yColumn: mentionedNumericColumn,
+    };
+  }
+
+  if (mentionedNumericColumns.length >= 2) {
+    return {
+      xColumn: mentionedNumericColumns[0],
+      yColumn: mentionedNumericColumns[1],
+    };
+  }
+
+  if (mentionedNumericColumn) {
+    const fallbackColumn =
+      numericColumns.find(
+        (column) => column.columnIndex !== mentionedNumericColumn.columnIndex,
+      ) ||
+      dateColumns.find(
+        (column) => column.columnIndex !== mentionedNumericColumn.columnIndex,
+      );
+
+    return fallbackColumn?.isDate
+      ? { xColumn: fallbackColumn, yColumn: mentionedNumericColumn }
+      : { xColumn: mentionedNumericColumn, yColumn: fallbackColumn || null };
+  }
+
+  if (mentionedDateColumn) {
+    const fallbackColumn = numericColumns.find(
+      (column) => column.columnIndex !== mentionedDateColumn.columnIndex,
+    );
+
+    return {
+      xColumn: mentionedDateColumn,
+      yColumn: fallbackColumn || null,
+    };
+  }
+
+  if (numericColumns.length >= 2) {
+    return {
+      xColumn: numericColumns[0],
+      yColumn: numericColumns[1],
+    };
+  }
+
+  if (dateColumns.length > 0 && numericColumns.length > 0) {
+    return {
+      xColumn: dateColumns[0],
+      yColumn: numericColumns[0],
+    };
+  }
+
+  return {
+    xColumn: allChartableColumns[0] || null,
+    yColumn: allChartableColumns[1] || null,
+  };
+}
+
+function buildScatterPlot({ rows, suggestion, xColumn, yColumn }) {
+  if (!xColumn || !yColumn) return null;
+
+  const data = rows
+    .map((row) => {
+      const xValue = parseScatterAxisValue(row[xColumn.columnIndex], xColumn);
+      const yValue = parseScatterAxisValue(row[yColumn.columnIndex], yColumn);
+
+      if (!xValue || !yValue) return null;
+
+      return {
+        x: xValue,
+        y: yValue,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, MAX_SCATTER_POINTS);
+
+  if (data.length === 0) return null;
+
+  return {
+    data,
+    subtitle: xColumn.isDate
+      ? `${yColumn.name} by ${xColumn.name}.`
+      : `${xColumn.name} compared with ${yColumn.name}.`,
+    title: suggestion?.title || "Numeric Relationship",
+    type: "scatter",
+    xLabel: xColumn.name,
+    xValueType: xColumn.isDate ? "date" : "number",
+    yLabel: yColumn.name,
+    yValueType: yColumn.isDate ? "date" : "number",
+  };
+}
+
+function parseScatterAxisValue(value, column) {
+  if (column.isDate) {
+    const dateValue = parseDateValue(value);
+    if (!dateValue?.isValid) return null;
+
+    const timestamp = Date.parse(`${dateValue.isoValue}T00:00:00Z`);
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
+
+  const numericValue = parseNumberValue(value);
+  return numericValue?.isValid ? numericValue.value : null;
+}
+
+function buildTablePlot({ columns, rows, suggestion }) {
+  const visibleColumns = columns.slice(0, 6);
+  if (visibleColumns.length === 0) return null;
+
+  return {
+    columns: visibleColumns.map((column) => column.name),
+    rows: rows.slice(0, MAX_TABLE_ROWS).map((row) =>
+      visibleColumns.map((column) =>
+        limitText(String(row[column.columnIndex] ?? ""), 80),
+      ),
+    ),
+    subtitle: `First ${Math.min(rows.length, MAX_TABLE_ROWS)} cleaned rows for non-sensitive columns.`,
+    title: suggestion?.title || "Cleaned Data Table",
+    type: "table",
+  };
+}
+
+function buildTopValues(values) {
+  const counts = new Map();
+
+  values.forEach((value) => {
+    const label = limitText(String(value ?? "").trim(), 32);
+    counts.set(label, (counts.get(label) || 0) + 1);
+  });
+
+  return {
+    items: [...counts.entries()]
+      .sort(([, leftCount], [, rightCount]) => rightCount - leftCount)
+      .slice(0, MAX_CATEGORY_ITEMS)
+      .map(([name, count]) => ({ count, name })),
+    totalUniqueCount: counts.size,
+  };
+}
+
+function buildNumericBuckets(values) {
+  const sortedValues = [...values].sort((left, right) => left - right);
+  if (sortedValues.length === 0) return [];
+
+  const min = sortedValues[0];
+  const max = sortedValues[sortedValues.length - 1];
+  const bucketCount = Math.min(8, Math.max(3, Math.ceil(Math.sqrt(sortedValues.length))));
+  const bucketWidth = max === min ? 1 : (max - min) / bucketCount;
+  const buckets = Array.from({ length: bucketCount }, (_, index) => ({
+    name:
+      max === min
+        ? formatNumber(min)
+        : `${formatNumber(min + bucketWidth * index)}-${formatNumber(
+            min + bucketWidth * (index + 1),
+          )}`,
+    value: 0,
+  }));
+
+  sortedValues.forEach((value) => {
+    const bucketIndex =
+      max === min
+        ? 0
+        : Math.min(Math.floor((value - min) / bucketWidth), bucketCount - 1);
+    buckets[bucketIndex].value += 1;
+  });
+
+  return buckets;
+}
+
+function normalizeText(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_./\\-]+/g, " ")
+    .replace(/[^a-z0-9\s]+/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function formatNumber(value) {
+  if (!Number.isFinite(Number(value))) return String(value);
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(Number(value));
+}
+
+function formatDateFromTimestamp(value) {
+  const date = new Date(Number(value));
+  if (!Number.isFinite(date.getTime())) return String(value);
+  return date.toISOString().slice(0, 10);
+}
+
+function roundNumber(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Number(value.toFixed(2));
+}
+
+function limitText(value, maxLength) {
+  const text = String(value ?? "");
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}...`;
+}
