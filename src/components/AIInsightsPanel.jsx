@@ -21,7 +21,7 @@ export default function AIInsightsPanel({
   const leadingRegionName = regionData[0]?.name || "N/A";
 
   return (
-    <Card className="p-0 border-l-4 border-l-gradient-to-b from-blue-500 to-purple-500 shadow-lg">
+    <Card className="p-0 border-l-4 border-l-blue-500 shadow-lg">
       <div className="p-6 bg-gradient-to-br from-blue-50 via-white to-purple-50 h-full flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -33,9 +33,16 @@ export default function AIInsightsPanel({
                   <Sparkles className="w-5 h-5 text-white" />
                 )}
               </div>
-              <h3 className="font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                {aiAnalysis ? "AI Analyst Report" : "Automated Insights"}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  {aiAnalysis ? "AI Analyst Report" : "Automated Insights"}
+                </h3>
+                {!aiAnalysis && !isGenerating && (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                    Sample
+                  </span>
+                )}
+              </div>
             </div>
             {!aiAnalysis && !isGenerating && (
               <button
@@ -80,6 +87,10 @@ export default function AIInsightsPanel({
               </>
             ) : (
               <>
+                <p className="text-xs text-slate-500 italic">
+                  Illustrative sample insights. Click Generate AI for analysis of
+                  the current data.
+                </p>
                 <div className="flex gap-3 p-3 bg-white rounded-lg shadow-sm border border-slate-100">
                   <span className="font-bold text-purple-300 text-2xl">01</span>
                   <p className="text-slate-700 leading-relaxed text-sm">

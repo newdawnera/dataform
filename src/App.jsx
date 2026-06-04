@@ -21,8 +21,6 @@ import {
 import { generatePortfolioData } from "./data/mockPortfolioData";
 import {
   AI_INSIGHTS_ERROR_FALLBACK,
-  AI_INSIGHTS_MISSING_KEY_MESSAGE,
-  getBrowserGroqApiKey,
   requestGroqPortfolioInsights,
 } from "./services/aiInsightsService";
 import { openPrintableRiskReport } from "./services/reportService";
@@ -75,18 +73,10 @@ export default function Dashboard() {
   const generateAIInsights = async () => {
     if (isGenerating) return;
 
-    const apiKey = getBrowserGroqApiKey();
-
-    if (!apiKey) {
-      alert(AI_INSIGHTS_MISSING_KEY_MESSAGE);
-      return;
-    }
-
     setIsGenerating(true);
 
     try {
       const insights = await requestGroqPortfolioInsights({
-        apiKey,
         metrics,
         regionData,
         segmentData,

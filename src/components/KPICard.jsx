@@ -18,7 +18,7 @@ export default function KPICard({
         : "text-slate-500";
 
   return (
-    <Card className="p-6 flex items-start justify-between transition-all hover:shadow-lg hover:scale-105 cursor-pointer">
+    <Card className="p-6 flex items-start justify-between transition-shadow hover:shadow-lg">
       <div>
         <p className="text-sm font-medium text-slate-600 mb-1">{title}</p>
         <h3 className="text-3xl font-bold text-slate-900">{value}</h3>
