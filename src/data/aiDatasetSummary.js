@@ -24,6 +24,15 @@ export function createAiDatasetSummary({ cleaningResult, file, profile }) {
   const cleanedQuality = analyzeDatasetQuality({ headers, rows });
   const sensitiveFields = summarizeSensitiveFields(headers);
   const summary = cleaningResult.summary || {};
+  const columnSummaries = headers
+    .slice(0, MAX_PROFILED_COLUMNS)
+    .map((header, columnIndex) =>
+      summarizeColumn({
+        columnIndex,
+        columnName: header,
+        rows,
+      }),
+    );
 
   return {
     schemaVersion: "phase4.dataset-summary.v1",
@@ -67,7 +76,9 @@ export function createAiDatasetSummary({ cleaningResult, file, profile }) {
       duplicateRowCount: cleanedQuality.duplicateRowCount,
       highMissingColumnCount: cleanedQuality.highMissingColumns.length,
       missingCellCount: cleanedQuality.missingCellCount,
-      mixedColumnCount: cleanedQuality.mixedColumns.length,
+      mixedColumnCount: columnSummaries.filter(
+        (column) => column.inferredType === "mixed",
+      ).length,
       originalDuplicateRowCount: cleaningResult.quality?.duplicateRowCount || 0,
       originalMissingCellCount: cleaningResult.quality?.missingCellCount || 0,
       outlierColumnCount: cleanedQuality.outlierColumns.length,
@@ -83,15 +94,7 @@ export function createAiDatasetSummary({ cleaningResult, file, profile }) {
         reason: field.reason,
       })),
     },
-    columns: headers
-      .slice(0, MAX_PROFILED_COLUMNS)
-      .map((header, columnIndex) =>
-        summarizeColumn({
-          columnIndex,
-          columnName: header,
-          rows,
-        }),
-      ),
+    columns: columnSummaries,
   };
 }
 
@@ -100,7 +103,7 @@ function summarizeColumn({ columnIndex, columnName, rows }) {
   const values = rows.map((row) => row[columnIndex]);
   const missingCount = values.filter((value) => isMissingValue(value)).length;
   const observedValues = values.filter((value) => !isMissingValue(value));
-  const typeCounts = countValueTypes(observedValues);
+  const typeCounts = countValueTypes(observedValues, columnName);
   const inferredType = inferColumnType(typeCounts, observedValues.length);
   const baseSummary = {
     columnIndex,
@@ -153,10 +156,12 @@ function summarizeColumn({ columnIndex, columnName, rows }) {
   };
 }
 
-function countValueTypes(values) {
+function countValueTypes(values, columnName) {
+  const isBooleanPreferred = isBooleanPreferredColumn(columnName);
+
   return values.reduce(
     (counts, value) => {
-      if (parseBooleanValue(value) !== null) {
+      if (isBooleanValue(value, isBooleanPreferred)) {
         counts.boolean += 1;
         return counts;
       }
@@ -182,6 +187,42 @@ function countValueTypes(values) {
       text: 0,
     },
   );
+}
+
+function isBooleanValue(value, isBooleanPreferred) {
+  const normalizedValue = String(value ?? "").trim().toLowerCase();
+
+  if (["true", "false", "yes", "no", "y", "n"].includes(normalizedValue)) {
+    return true;
+  }
+
+  if (["1", "0"].includes(normalizedValue)) {
+    return isBooleanPreferred;
+  }
+
+  return parseBooleanValue(value) !== null;
+}
+
+function isBooleanPreferredColumn(columnName) {
+  const normalizedName = String(columnName ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_./\\-]+/g, " ")
+    .replace(/[^a-z0-9\s]+/g, "")
+    .replace(/\s+/g, " ");
+
+  return [
+    /\bis\b/,
+    /\bhas\b/,
+    /\bflag\b/,
+    /\bactive\b/,
+    /\benabled\b/,
+    /\bdisabled\b/,
+    /\bapproved\b/,
+    /\bverified\b/,
+    /\bsubscribed\b/,
+    /\bboolean\b/,
+  ].some((pattern) => pattern.test(normalizedName));
 }
 
 function inferColumnType(typeCounts, observedCount) {

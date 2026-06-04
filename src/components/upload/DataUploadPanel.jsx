@@ -8,6 +8,7 @@ import ExportCleanedCsvButton from "./ExportCleanedCsvButton";
 import FileDropzone from "./FileDropzone";
 import FileSummary from "./FileSummary";
 import UploadEmptyState from "./UploadEmptyState";
+import UploadedDataChartsPanel from "./UploadedDataChartsPanel";
 import UploadedDataInsightsPanel from "./UploadedDataInsightsPanel";
 import useDatasetCleaning from "../../hooks/useDatasetCleaning";
 import useDatasetUpload from "../../hooks/useDatasetUpload";
@@ -81,6 +82,7 @@ export default function DataUploadPanel() {
           />
           <CleaningSummary result={cleaning.cleaningResult} />
           <CleanedDataPreview result={cleaning.cleaningResult} />
+          <UploadedDataChartsPanel result={cleaning.cleaningResult} />
           <ExportCleanedCsvButton
             fileName={file?.name}
             result={cleaning.cleaningResult}

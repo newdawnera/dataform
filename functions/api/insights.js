@@ -207,6 +207,7 @@ function buildSystemPrompt() {
     "Analyze only the dataset summary supplied by the user.",
     "Never claim that a model was trained, tuned, or fit on the uploaded data.",
     "Never claim certainty beyond the summarized evidence.",
+    "Do not claim a column has mixed data types unless that column's inferredType is mixed or the summary explicitly reports mixed columns.",
     "Identify useful trends, risks, anomalies, opportunities, data quality caveats, next analysis steps, and helpful chart ideas.",
     "If the dataset is too small, incomplete, redacted, or ambiguous, say that strong conclusions are not supported.",
     "Avoid regulated financial, legal, or medical conclusions as facts.",
