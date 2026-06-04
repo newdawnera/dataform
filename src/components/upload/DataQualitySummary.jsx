@@ -79,7 +79,7 @@ export default function DataQualitySummary({ quality }) {
 
       <div className="mt-5 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
         Uploaded files are processed locally in your browser. No model is
-        trained in this phase.
+        trained by this app.
       </div>
     </Card>
   );

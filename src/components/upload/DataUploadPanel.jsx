@@ -35,7 +35,7 @@ export default function DataUploadPanel() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-bold uppercase tracking-wide text-blue-600">
-            Phase 4
+            Local data workspace
           </p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900">
             Data Upload Workspace

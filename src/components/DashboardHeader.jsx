@@ -35,7 +35,7 @@ export default function DashboardHeader({
             </button>
           )}
           <span className="hidden md:block px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
-            Phase 2
+            Secure Insights
           </span>
         </div>
       </div>

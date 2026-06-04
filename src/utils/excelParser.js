@@ -15,7 +15,7 @@ export async function parseExcelFile(file) {
 
 function normalizeWorksheetRows(worksheetRows) {
   const warnings = [
-    "Only the first worksheet is imported in this phase.",
+    "Only the first worksheet is imported.",
   ];
   const rows = worksheetRows
     .map((row) => row.map(formatCellValue))

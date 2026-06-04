@@ -45,7 +45,7 @@ export default function WorkspaceTabs({ activeView, onViewChange }) {
         })}
       </div>
       <p className="text-sm font-medium text-slate-500">
-        Uploaded files are processed locally in your browser during this phase.
+        Uploaded files are processed locally in your browser.
       </p>
     </div>
   );

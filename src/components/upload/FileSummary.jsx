@@ -124,7 +124,7 @@ export default function FileSummary({
         <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
           Uploaded files are processed locally in your browser. No model is
-          trained in this phase.
+          trained by this app.
         </p>
       </div>
     </Card>
