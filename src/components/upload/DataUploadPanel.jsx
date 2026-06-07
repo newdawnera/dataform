@@ -1,3 +1,5 @@
+import { useMemo, useState } from "react";
+
 import ColumnProfileTable from "./ColumnProfileTable";
 import CleanedDataPreview from "./CleanedDataPreview";
 import CleaningOptionsPanel from "./CleaningOptionsPanel";
@@ -10,8 +12,10 @@ import FileSummary from "./FileSummary";
 import UploadEmptyState from "./UploadEmptyState";
 import UploadedDataChartsPanel from "./UploadedDataChartsPanel";
 import UploadedDataInsightsPanel from "./UploadedDataInsightsPanel";
+import UploadedRevenueDashboard from "./UploadedRevenueDashboard";
 import useDatasetCleaning from "../../hooks/useDatasetCleaning";
 import useDatasetUpload from "../../hooks/useDatasetUpload";
+import { applyCrossFilter } from "./crossFilter";
 
 export default function DataUploadPanel() {
   const {
@@ -29,6 +33,22 @@ export default function DataUploadPanel() {
     warnings,
   } = useDatasetUpload();
   const cleaning = useDatasetCleaning({ datasetId, headers, rows });
+
+  const [crossFilter, setCrossFilter] = useState(null);
+  const [filterSource, setFilterSource] = useState(cleaning.cleaningResult);
+
+  // Drop any active cross-filter whenever a new cleaned result arrives
+  // (new upload, or cleaning re-applied) so a stale filter never sticks.
+  // Uses React's adjust-state-during-render pattern instead of an effect.
+  if (filterSource !== cleaning.cleaningResult) {
+    setFilterSource(cleaning.cleaningResult);
+    setCrossFilter(null);
+  }
+
+  const filteredResult = useMemo(
+    () => applyCrossFilter(cleaning.cleaningResult, crossFilter),
+    [cleaning.cleaningResult, crossFilter],
+  );
 
   return (
     <section className="space-y-6">
@@ -81,8 +101,14 @@ export default function DataUploadPanel() {
             quality={cleaning.quality}
           />
           <CleaningSummary result={cleaning.cleaningResult} />
-          <CleanedDataPreview result={cleaning.cleaningResult} />
-          <UploadedDataChartsPanel result={cleaning.cleaningResult} />
+          <CleanedDataPreview result={filteredResult} />
+          <UploadedRevenueDashboard result={cleaning.cleaningResult} />
+          <UploadedDataChartsPanel
+            crossFilter={crossFilter}
+            filteredResult={filteredResult}
+            onCrossFilter={setCrossFilter}
+            result={cleaning.cleaningResult}
+          />
           <ExportCleanedCsvButton
             fileName={file?.name}
             result={cleaning.cleaningResult}

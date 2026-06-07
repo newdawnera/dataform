@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BarChart3, GitCompare, PieChart as PieChartIcon, TrendingUp } from "lucide-react";
+import { BarChart3, Filter, GitCompare, PieChart as PieChartIcon, TrendingUp, X } from "lucide-react";
 
 import Card from "../Card";
 import SectionHeader from "../SectionHeader";
@@ -25,6 +25,11 @@ import {
   parseNumberValue,
 } from "../../data/cleaningRules";
 import { detectSensitiveField } from "../../data/sensitiveFieldDetection";
+import {
+  categoryLabel,
+  isActiveCrossFilter,
+  toggleCrossFilter,
+} from "./crossFilter";
 
 const CHART_COLORS = [
   "#2563eb",
@@ -40,12 +45,22 @@ const MAX_CATEGORY_ITEMS = 8;
 const MAX_TREND_POINTS = 14;
 const MAX_SCATTER_POINTS = 120;
 
-export default function UploadedDataChartsPanel({ result }) {
-  const chartPlan = useMemo(() => buildChartPlan(result), [result]);
+export default function UploadedDataChartsPanel({
+  crossFilter = null,
+  filteredResult,
+  onCrossFilter,
+  result,
+}) {
+  // Categorical charts are built from the full dataset so the user can always
+  // see and switch between every category. The trend / scatter / histogram and
+  // the cleaned preview react to the active cross-filter via filteredResult.
+  const sourcePlan = useMemo(() => buildChartPlan(result), [result]);
+  const viewSource = filteredResult ?? result;
+  const viewPlan = useMemo(() => buildChartPlan(viewSource), [viewSource]);
 
   if (!result) return null;
 
-  if (!chartPlan.hasCharts) {
+  if (!sourcePlan.hasCharts) {
     return (
       <Card className="p-5">
         <SectionHeader
@@ -64,11 +79,39 @@ export default function UploadedDataChartsPanel({ result }) {
     );
   }
 
+  const filterColumnIndex = sourcePlan.distribution?.columnIndex ?? null;
+  const filterActive = isActiveCrossFilter(crossFilter);
+  const selectedValue =
+    filterActive && crossFilter.columnIndex === filterColumnIndex
+      ? crossFilter.value
+      : null;
+
+  const handleSelect = (value) => {
+    if (!onCrossFilter || filterColumnIndex == null) return;
+    onCrossFilter(
+      toggleCrossFilter(crossFilter, {
+        columnIndex: filterColumnIndex,
+        columnName: sourcePlan.distribution.columnName,
+        value,
+      }),
+    );
+  };
+
+  const clearFilter = () => onCrossFilter && onCrossFilter(null);
+
+  const totalRows = result.rows?.length ?? 0;
+  const shownRows = viewSource.rows?.length ?? totalRows;
+  const canFilter = Boolean(onCrossFilter && filterColumnIndex != null);
+
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SectionHeader
-          subtitle="Charts are generated locally from the cleaned dataset."
+          subtitle={
+            canFilter
+              ? "Charts are generated locally. Click a category bar or slice to cross-filter the other charts and the cleaned preview."
+              : "Charts are generated locally from the cleaned dataset."
+          }
           title={
             <>
               <BarChart3 className="h-5 w-5 text-slate-500" />
@@ -78,25 +121,69 @@ export default function UploadedDataChartsPanel({ result }) {
         />
       </div>
 
+      {filterActive && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-blue-900">
+            <Filter className="h-4 w-4 text-blue-600" />
+            <span>
+              Filtered to{" "}
+              <span className="font-semibold">{crossFilter.columnName}</span>
+              {" = "}
+              <span className="font-semibold">{crossFilter.value}</span>
+            </span>
+            <span className="text-blue-700">
+              ({shownRows.toLocaleString()} of {totalRows.toLocaleString()} rows)
+            </span>
+          </div>
+          <button
+            className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-white px-3 py-1.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+            onClick={clearFilter}
+            type="button"
+          >
+            <X className="h-4 w-4" />
+            Clear filter
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {chartPlan.distribution && (
-          <DistributionBarChart chart={chartPlan.distribution} />
+        {sourcePlan.distribution && (
+          <DistributionBarChart
+            chart={sourcePlan.distribution}
+            onSelect={canFilter ? handleSelect : null}
+            selectedValue={selectedValue}
+          />
         )}
-        {chartPlan.pie && <DistributionPieChart chart={chartPlan.pie} />}
+        {sourcePlan.pie && (
+          <DistributionPieChart
+            chart={sourcePlan.pie}
+            onSelect={canFilter ? handleSelect : null}
+            selectedValue={selectedValue}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {chartPlan.trend && <TrendChart chart={chartPlan.trend} />}
-        {chartPlan.scatter && <ScatterRelationshipChart chart={chartPlan.scatter} />}
-        {!chartPlan.scatter && chartPlan.histogram && (
-          <HistogramChart chart={chartPlan.histogram} />
+        {viewPlan.trend && <TrendChart chart={viewPlan.trend} />}
+        {viewPlan.scatter && <ScatterRelationshipChart chart={viewPlan.scatter} />}
+        {!viewPlan.scatter && viewPlan.histogram && (
+          <HistogramChart chart={viewPlan.histogram} />
         )}
       </div>
+
+      {filterActive && !viewPlan.trend && !viewPlan.scatter && !viewPlan.histogram && (
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+          No trend, relationship, or range charts to show for this filtered
+          selection.
+        </div>
+      )}
     </section>
   );
 }
 
-function DistributionBarChart({ chart }) {
+function DistributionBarChart({ chart, onSelect, selectedValue }) {
+  const interactive = Boolean(onSelect);
+
   return (
     <Card className="p-6 border-2 border-blue-100 lg:col-span-2">
       <SectionHeader title={chart.title} subtitle={chart.subtitle} />
@@ -120,7 +207,15 @@ function DistributionBarChart({ chart }) {
             <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#f1f5f9" }} />
             <Bar dataKey="count" name="Rows" radius={[8, 8, 0, 0]}>
               {chart.data.map((entry, index) => (
-                <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                <Cell
+                  cursor={interactive ? "pointer" : "default"}
+                  fill={CHART_COLORS[index % CHART_COLORS.length]}
+                  fillOpacity={cellOpacity(entry.name, selectedValue)}
+                  key={entry.name}
+                  onClick={interactive ? () => onSelect(entry.name) : undefined}
+                  stroke={entry.name === selectedValue ? "#1e3a8a" : undefined}
+                  strokeWidth={entry.name === selectedValue ? 2 : 0}
+                />
               ))}
             </Bar>
           </BarChart>
@@ -130,7 +225,9 @@ function DistributionBarChart({ chart }) {
   );
 }
 
-function DistributionPieChart({ chart }) {
+function DistributionPieChart({ chart, onSelect, selectedValue }) {
+  const interactive = Boolean(onSelect);
+
   return (
     <Card className="p-6 border-2 border-purple-100">
       <SectionHeader title={chart.title} subtitle={chart.subtitle} />
@@ -146,16 +243,29 @@ function DistributionPieChart({ chart }) {
               paddingAngle={4}
             >
               {chart.data.map((entry, index) => (
-                <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                <Cell
+                  cursor={interactive ? "pointer" : "default"}
+                  fill={CHART_COLORS[index % CHART_COLORS.length]}
+                  fillOpacity={cellOpacity(entry.name, selectedValue)}
+                  key={entry.name}
+                  onClick={interactive ? () => onSelect(entry.name) : undefined}
+                  stroke={entry.name === selectedValue ? "#1e3a8a" : "#ffffff"}
+                  strokeWidth={entry.name === selectedValue ? 3 : 1}
+                />
               ))}
             </Pie>
             <Tooltip contentStyle={tooltipStyle} />
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <LegendList data={chart.data} />
+      <LegendList data={chart.data} selectedValue={selectedValue} />
     </Card>
   );
+}
+
+function cellOpacity(name, selectedValue) {
+  if (selectedValue == null) return 1;
+  return name === selectedValue ? 1 : 0.3;
 }
 
 function TrendChart({ chart }) {
@@ -254,11 +364,17 @@ function HistogramChart({ chart }) {
   );
 }
 
-function LegendList({ data }) {
+function LegendList({ data, selectedValue }) {
   return (
     <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-medium text-slate-600">
       {data.slice(0, 6).map((item, index) => (
-        <div className="flex min-w-0 items-center gap-2" key={item.name}>
+        <div
+          className="flex min-w-0 items-center gap-2"
+          key={item.name}
+          style={{
+            opacity: selectedValue == null || item.name === selectedValue ? 1 : 0.4,
+          }}
+        >
           <span
             className="h-3 w-3 shrink-0 rounded-full"
             style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
@@ -358,6 +474,8 @@ function selectDistributionColumn(categoricalColumns, numericColumns) {
 
 function buildDistributionChart(column, chartType) {
   return {
+    columnIndex: column.columnIndex,
+    columnName: column.name,
     data: column.topValues.items,
     subtitle:
       chartType === "bar"
@@ -478,7 +596,7 @@ function buildTopValues(values) {
   const counts = new Map();
 
   values.forEach((value) => {
-    const label = limitText(String(value ?? "").trim(), 32);
+    const label = categoryLabel(value);
     counts.set(label, (counts.get(label) || 0) + 1);
   });
 
@@ -501,12 +619,6 @@ function formatNumber(value) {
 function roundNumber(value) {
   if (!Number.isFinite(value)) return 0;
   return Number(value.toFixed(2));
-}
-
-function limitText(value, maxLength) {
-  const text = String(value ?? "");
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, maxLength - 1)}...`;
 }
 
 const tooltipStyle = {
