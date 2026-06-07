@@ -55,6 +55,7 @@ describe("parseNumberValue", () => {
   it("parses plain, currency, and thousands-separated numbers", () => {
     expect(parseNumberValue("1234")).toEqual({ isValid: true, value: 1234 });
     expect(parseNumberValue("$1,234.50")).toEqual({ isValid: true, value: 1234.5 });
+    expect(parseNumberValue("£1,234.50")).toEqual({ isValid: true, value: 1234.5 });
     expect(parseNumberValue(42)).toEqual({ isValid: true, value: 42 });
   });
 
@@ -90,6 +91,21 @@ describe("parseDateValue", () => {
       isoValue: "2024-12-25",
     });
     expect(parseDateValue("12/25/2024")).toEqual({
+      isValid: true,
+      isoValue: "2024-12-25",
+    });
+  });
+
+  it("parses slash and ISO dates that include a time component", () => {
+    expect(parseDateValue("25/12/2024 08:10")).toEqual({
+      isValid: true,
+      isoValue: "2024-12-25",
+    });
+    expect(parseDateValue("12/25/2024 08:10:00")).toEqual({
+      isValid: true,
+      isoValue: "2024-12-25",
+    });
+    expect(parseDateValue("2024-12-25T08:10:00")).toEqual({
       isValid: true,
       isoValue: "2024-12-25",
     });

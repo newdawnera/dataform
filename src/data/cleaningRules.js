@@ -169,7 +169,7 @@ export function parseNumberValue(value) {
   if (!trimmedValue || isMissingValue(trimmedValue)) return null;
   if (trimmedValue.endsWith("%")) return null;
 
-  const withoutCurrency = trimmedValue.replace(/^\$\s*/, "");
+  const withoutCurrency = trimmedValue.replace(/^[£$€]\s*/, "");
 
   if (hasSuspiciousLeadingZero(withoutCurrency)) {
     return { isSuspicious: true, value: trimmedValue };
@@ -210,7 +210,7 @@ export function parseDateValue(value) {
     return buildDateParseResult(Number(year), Number(month), Number(day));
   }
 
-  const slashMatch = trimmedValue.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  const slashMatch = trimmedValue.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:[T\s].*)?$/);
   if (!slashMatch) return null;
 
   const [, firstPart, secondPart, yearPart] = slashMatch;

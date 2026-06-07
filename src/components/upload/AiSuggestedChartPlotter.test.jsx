@@ -40,6 +40,38 @@ describe("buildPlotFromSuggestion", () => {
     ]);
   });
 
+  it("builds a scatter plot when the date column carries a time component", () => {
+    const plot = buildPlotFromSuggestion({
+      cleaningResult: {
+        headers: ["group_size", "submission_timestamp", "title"],
+        rows: [
+          [3, "18/01/2026 08:10", "Alpha"],
+          [5, "19/01/2026 09:00", "Beta"],
+          [2, "20/01/2026 10:30", "Gamma"],
+        ],
+      },
+      suggestion: {
+        chartType: "scatter",
+        reason:
+          "To explore the relationship between 'group_size' and 'submission_timestamp'.",
+        title: "Group Size Over Time",
+      },
+    });
+
+    expect(plot).toMatchObject({
+      type: "scatter",
+      xLabel: "submission_timestamp",
+      xValueType: "date",
+      yLabel: "group_size",
+      yValueType: "number",
+    });
+    expect(plot.data).toEqual([
+      { x: Date.parse("2026-01-18T00:00:00Z"), y: 3 },
+      { x: Date.parse("2026-01-19T00:00:00Z"), y: 5 },
+      { x: Date.parse("2026-01-20T00:00:00Z"), y: 2 },
+    ]);
+  });
+
   it("explains when a line suggestion falls back to row order instead of time", () => {
     const plot = buildPlotFromSuggestion({
       cleaningResult: {
