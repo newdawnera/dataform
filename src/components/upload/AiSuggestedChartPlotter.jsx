@@ -20,6 +20,7 @@ import { BarChart3, Eye } from "lucide-react";
 import {
   buildPlotFromSuggestion,
   buildSuggestedChartRead,
+  ensureScatterSuggestion,
   formatScatterValue,
 } from "./aiSuggestedChartPlotterUtils";
 
@@ -38,19 +39,23 @@ export default function AiSuggestedChartPlotter({
   cleaningResult,
   suggestedCharts,
 }) {
+  const charts = useMemo(
+    () => ensureScatterSuggestion({ cleaningResult, suggestedCharts }),
+    [cleaningResult, suggestedCharts],
+  );
   const plots = useMemo(
     () =>
-      (suggestedCharts || []).map((suggestion) =>
+      charts.map((suggestion) =>
         buildPlotFromSuggestion({ cleaningResult, suggestion }),
       ),
-    [cleaningResult, suggestedCharts],
+    [cleaningResult, charts],
   );
   const firstPlottableIndex = plots.findIndex((plot) => plot);
   const [selectedIndex, setSelectedIndex] = useState(firstPlottableIndex);
   const activeIndex = plots[selectedIndex] ? selectedIndex : firstPlottableIndex;
   const activePlot = activeIndex >= 0 ? plots[activeIndex] : null;
 
-  if (!suggestedCharts?.length) return null;
+  if (!charts.length) return null;
 
   return (
     <div>
@@ -59,7 +64,7 @@ export default function AiSuggestedChartPlotter({
         AI suggested chart ideas
       </h3>
       <div className="mt-3 grid gap-3 md:grid-cols-3">
-        {suggestedCharts.map((chart, index) => {
+        {charts.map((chart, index) => {
           const plot = plots[index];
           const canPlot = Boolean(plot);
           const isActive = activeIndex === index;

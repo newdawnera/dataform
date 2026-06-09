@@ -94,6 +94,37 @@ export function buildSuggestedChartRead({ plot, suggestion }) {
   return "This suggestion needs chart-ready local columns before the app can produce a grounded interpretation.";
 }
 
+export function ensureScatterSuggestion({ cleaningResult, suggestedCharts }) {
+  const charts = Array.isArray(suggestedCharts) ? [...suggestedCharts] : [];
+
+  const alreadyHasScatter = charts.some(
+    (chart) => String(chart?.chartType || "").toLowerCase() === "scatter",
+  );
+  if (alreadyHasScatter) return charts;
+
+  if (!cleaningResult?.headers || !cleaningResult?.rows?.length) return charts;
+
+  const columns = summarizeColumns(cleaningResult);
+  const numericColumns = columns.filter((column) => column.isNumeric);
+  const dateColumns = columns.filter((column) => column.isDate);
+  const { xColumn, yColumn } = selectScatterColumns({
+    dateColumns,
+    matchedColumns: [],
+    numericColumns,
+  });
+
+  if (!xColumn || !yColumn) return charts;
+
+  charts.push({
+    chartType: "scatter",
+    isDeterministicFallback: true,
+    reason: `Relationship between '${yColumn.name}' and '${xColumn.name}', plotted locally from the cleaned columns.`,
+    title: `${yColumn.name} vs ${xColumn.name}`,
+  });
+
+  return charts;
+}
+
 function summarizeColumns(cleaningResult) {
   return cleaningResult.headers
     .map((name, columnIndex) => {
